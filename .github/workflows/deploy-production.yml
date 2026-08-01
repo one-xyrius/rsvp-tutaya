@@ -9,18 +9,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for git operations
 
       # Install python3-nacl (for future use, if needed)
       - name: Install python3-nacl
         run: pip install pynacl
 
+      # Generate package-lock.json if missing (GitHub Actions only)
+      - name: Install dependencies
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+            git config --global user.name "github-actions"
+            git config --global user.email "github-actions@github.com"
+            git add package-lock.json
+            git commit -m "chore: add package-lock.json"
+            git push
+          fi
+
       # Deploy to Cloudflare Pages
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npm run build
-      - uses: cloudflare/wrangler-action@v3
+      - name: Build
+        run: npm run build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
